@@ -18,8 +18,21 @@ func (s *Server) accept(listen net.Listener) error {
 			return err
 		}
 
+		if s.ConnectionAcceptedEvent != nil {
+			for _, handler := range s.ConnectionAcceptedEvent {
+				handler(conn)
+			}
+		}
+
 		go func(conn net.Conn) {
-			defer conn.Close()
+			defer func() {
+				conn.Close()
+				if s.ConnectionClosedEvent != nil {
+					for _, handler := range s.ConnectionClosedEvent {
+						handler(conn)
+					}
+				}
+			}()
 
 			for {
 				packet := make([]byte, 512)
@@ -53,6 +66,11 @@ func (s *Server) ListenTCP(addressPort string) (err error) {
 	if err != nil {
 		log.Printf("Failed to Listen: %v\n", err)
 		return err
+	}
+	if s.ServerStartedEvent != nil {
+		for _, handle := range s.ServerStartedEvent {
+			handle(listen)
+		}
 	}
 	s.listeners = append(s.listeners, listen)
 	go s.accept(listen)
